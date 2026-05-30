@@ -1,0 +1,10 @@
+# On ne copie pas ces éléments dans l'image Docker
+/target
+.git
+.gitignore
+.env
+progress.json
+*.log
+/caddy_data
+/caddy_config
+README.md

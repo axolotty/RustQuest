@@ -1,0 +1,14 @@
+/target
+
+# Secrets : ne JAMAIS committer le fichier .env (il contient le mot de passe)
+.env
+
+# Progression locale de l'apprenant
+progress.json
+
+# Logs divers
+*.log
+
+# Données du reverse proxy (certificats, etc.) si montées localement
+/caddy_data
+/caddy_config

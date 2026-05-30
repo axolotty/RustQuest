@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RustQuest</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><text x=%228%22 y=%2252%22 font-size=%2248%22>%F0%9F%A6%80</text></svg>">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <button class="menu-btn" id="menu-btn" aria-label="Menu">☰</button>
+        <div class="brand">
+            <span class="brand-name">RustQuest</span>
+        </div>
+
+        <div class="xp-zone">
+            <div class="xp-bar">
+                <div class="xp-fill" id="xp-fill"></div>
+                <span class="xp-text" id="xp-text">0 / 0 XP</span>
+            </div>
+            <div class="progress-count" id="progress-count">0/0</div>
+        </div>
+
+        <div class="controls">
+            <div class="lang-toggle" id="lang-toggle">
+                <button data-lang="fr" class="active">FR</button>
+                <button data-lang="en">EN</button>
+            </div>
+            <button class="ghost-btn reset-global" id="reset-btn" title="Recommencer toute la progression">
+                ⟳ <span id="reset-label">Recommencer</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="layout">
+        <!-- Carte des niveaux -->
+        <aside class="sidebar" id="sidebar">
+            <h2 class="sidebar-title" id="sidebar-title">Niveaux</h2>
+            <ul class="level-list" id="level-list"></ul>
+        </aside>
+
+        <!-- Zone de contenu -->
+        <section class="content" id="content">
+            <div class="welcome" id="welcome">
+                <h1>RustQuest</h1>
+                <p id="welcome-text">Choisis un niveau à gauche pour commencer ton aventure Rust.</p>
+            </div>
+
+            <article class="level-view hidden" id="level-view">
+                <div class="lesson-pane">
+                    <div class="level-head">
+                        <span class="level-badge" id="level-badge">1</span>
+                        <div>
+                            <h1 class="level-title" id="level-title"></h1>
+                            <p class="level-subtitle" id="level-subtitle"></p>
+                        </div>
+                    </div>
+                    <div class="lesson" id="lesson"></div>
+                </div>
+
+                <div class="exercise-pane" id="exercise-pane">
+                    <div class="task" id="task"></div>
+
+                    <div class="editor-wrap">
+                        <div class="editor-header">
+                            <span id="editor-label">solution.rs</span>
+                        </div>
+                        <textarea id="editor" spellcheck="false" autocapitalize="off"
+                                  autocomplete="off" autocorrect="off"></textarea>
+                    </div>
+
+                    <div class="exercise-actions">
+                        <button class="run-btn" id="run-btn">▶ <span id="run-label">Lancer</span></button>
+                        <button class="ghost-btn wide" id="hint-btn">💡 <span id="hint-label">Indice</span></button>
+                        <button class="ghost-btn wide" id="solution-btn">👁 <span id="solution-label">Solution</span></button>
+                        <button class="ghost-btn wide" id="reset-code-btn">⟲ <span id="resetcode-label">Réinitialiser</span></button>
+                    </div>
+
+                    <div class="hints" id="hints"></div>
+
+                    <div class="output" id="output"></div>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <!-- Voile pour fermer le menu sur mobile -->
+    <div class="scrim" id="scrim"></div>
+
+    <!-- Toast de réussite -->
+    <div class="toast hidden" id="toast"></div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

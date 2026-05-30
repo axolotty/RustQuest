@@ -1,0 +1,73 @@
+# =============================================================================
+# RustQuest — déploiement Docker
+#
+#   docker compose up -d --build
+#
+# Deux services :
+#   - rustquest : l'application (auth HTTP Basic activée via .env)
+#   - caddy     : reverse proxy + HTTPS auto — OPTIONNEL (profil "caddy")
+#
+# Caddy ne démarre QUE si COMPOSE_PROFILES=caddy dans le .env.
+#   - Tu n'as pas de reverse proxy        -> COMPOSE_PROFILES=caddy (Caddy gère le HTTPS)
+#   - Tu as DÉJÀ un reverse proxy en place -> COMPOSE_PROFILES=      (Caddy ignoré ;
+#                                             ton proxy tape sur 127.0.0.1:${RUSTQUEST_PORT})
+#
+# Copie d'abord .env.example vers .env et remplis-le (surtout le mot de passe).
+# =============================================================================
+
+services:
+  rustquest:
+    build: .
+    image: rustquest:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RUSTQUEST_BIND: "0.0.0.0:3000"
+    # Port publié côté hôte, lié à 127.0.0.1 par défaut (donc PAS exposé
+    # directement à Internet) : ton reverse proxy externe tape dessus.
+    # Avec Caddy, la communication passe par le réseau interne, ce port reste
+    # juste accessible en local. Mets "0.0.0.0:..." si tu sais ce que tu fais.
+    ports:
+      - "127.0.0.1:${RUSTQUEST_PORT:-3000}:3000"
+    volumes:
+      - rustquest_data:/data
+    networks:
+      - interne
+    # --- Garde-fous de sécurité (sandbox du code exécuté) ---
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256          # empêche les fork bombs
+    mem_limit: 2g            # plafond mémoire (compilation rustc + tmpfs comprise)
+    cpus: 1.5                # plafond CPU
+    tmpfs:
+      - /tmp:size=256m,mode=1777   # compilation/exécution en mémoire, taille limitée
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    # Service optionnel : activé uniquement si COMPOSE_PROFILES=caddy.
+    profiles:
+      - caddy
+    depends_on:
+      - rustquest
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - interne
+
+networks:
+  interne:
+    driver: bridge
+
+volumes:
+  rustquest_data:
+  caddy_data:
+  caddy_config:

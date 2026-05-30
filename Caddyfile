@@ -1,0 +1,16 @@
+# Reverse proxy Caddy pour RustQuest.
+#
+# - Si RUSTQUEST_DOMAIN est un vrai domaine (ex : rustquest.mondomaine.fr),
+#   Caddy obtient et renouvelle TOUT SEUL un certificat HTTPS (Let's Encrypt).
+# - Pour un test local sans domaine, mets RUSTQUEST_DOMAIN=:80 dans .env
+#   (HTTP simple, sans TLS).
+
+{
+	# E-mail utilisé pour Let's Encrypt (peut rester vide en HTTP-only).
+	email {$ACME_EMAIL}
+}
+
+{$RUSTQUEST_DOMAIN} {
+	encode gzip
+	reverse_proxy rustquest:3000
+}
