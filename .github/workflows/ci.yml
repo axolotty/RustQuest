@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Évite les exécutions en double si on pousse plusieurs fois d'affilée.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-validate:
+    name: Compiler & valider les 100 niveaux
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Rust (stable + clippy)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache des dépendances
+        uses: Swatinem/rust-cache@v2
+
+      - name: Compiler (release)
+        run: cargo build --release
+
+      - name: Lancer le serveur et valider tous les niveaux
+        run: |
+          # Démarre le serveur en arrière-plan (auth désactivée, 127.0.0.1:3000).
+          ./target/release/rust_quest &
+          SERVER_PID=$!
+
+          # Attend qu'il réponde (max ~30 s).
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/api/levels >/dev/null 2>&1; then
+              echo "Serveur prêt."
+              break
+            fi
+            sleep 1
+          done
+
+          # Valide les 100 niveaux ; mémorise le code de sortie.
+          python3 ci/validate.py
+          STATUS=$?
+
+          kill "$SERVER_PID" 2>/dev/null || true
+          exit $STATUS

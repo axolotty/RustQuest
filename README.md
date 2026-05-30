@@ -1,5 +1,7 @@
 # 🦀 RustQuest
 
+[![CI](https://github.com/Axolotty/RustQuest/actions/workflows/ci.yml/badge.svg)](https://github.com/Axolotty/RustQuest/actions/workflows/ci.yml)
+
 Une plateforme web locale pour apprendre le **Rust** de façon ludique :
 des niveaux qui se débloquent un à un, des leçons illustrées (tirées de la
 logique du *Rust Book*), des exercices que tu corriges dans le navigateur, et
