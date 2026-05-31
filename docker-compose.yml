@@ -28,7 +28,7 @@ services:
     # Avec Caddy, la communication passe par le réseau interne, ce port reste
     # juste accessible en local. Mets "0.0.0.0:..." si tu sais ce que tu fais.
     ports:
-      - "127.0.0.1:${RUSTQUEST_PORT:-3000}:3000"
+      - "0.0.0.0:${RUSTQUEST_PORT:-3000}:3000"
     volumes:
       - rustquest_data:/data
     networks:
