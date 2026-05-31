@@ -25,12 +25,22 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 18px;
-            padding: 34px 30px;
+            padding: 28px 30px 34px;
             box-shadow: 0 24px 70px rgba(0, 0, 0, .55);
         }
+        .lang-toggle {
+            display: flex; width: fit-content; margin: 0 auto 18px;
+            background: var(--code-bg); border: 1px solid var(--border);
+            border-radius: 8px; overflow: hidden;
+        }
+        .lang-toggle button {
+            background: transparent; border: none; color: var(--text-dim);
+            padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+        }
+        .lang-toggle button.active { background: var(--rust); color: #fff; }
         .logo { font-size: 52px; text-align: center; line-height: 1; }
         h1 { text-align: center; font-size: 24px; margin: 10px 0 4px; letter-spacing: .5px; }
-        .sub { text-align: center; color: var(--text-dim); font-size: 14px; margin-bottom: 26px; }
+        .sub { text-align: center; color: var(--text-dim); font-size: 14px; margin-bottom: 24px; }
         label { display: block; font-size: 13px; color: var(--text-dim); margin: 14px 0 6px; }
         input {
             width: 100%;
@@ -44,15 +54,15 @@
             transition: border-color .15s;
         }
         input:focus { border-color: var(--rust); }
-        button {
+        button.submit {
             width: 100%; margin-top: 24px;
             background: linear-gradient(135deg, var(--rust), var(--rust-dim));
             color: #fff; border: none; border-radius: 10px;
             padding: 13px; font-size: 16px; font-weight: 700; cursor: pointer;
             transition: filter .15s;
         }
-        button:hover { filter: brightness(1.08); }
-        button:disabled { opacity: .6; cursor: wait; }
+        button.submit:hover { filter: brightness(1.08); }
+        button.submit:disabled { opacity: .6; cursor: wait; }
         .error {
             display: none;
             margin-top: 16px;
@@ -69,39 +79,89 @@
 </head>
 <body>
     <form class="card" id="form">
+        <div class="lang-toggle" id="lang-toggle">
+            <button type="button" data-lang="fr" class="active">FR</button>
+            <button type="button" data-lang="en">EN</button>
+        </div>
+
         <div class="logo">🦀</div>
         <h1>RustQuest</h1>
-        <div class="sub">Connecte-toi pour continuer ton aventure</div>
+        <div class="sub" id="sub"></div>
 
-        <label for="user">Identifiant</label>
+        <label for="user" id="lbl-user"></label>
         <input id="user" name="user" autocomplete="username" autofocus required>
 
-        <label for="password">Mot de passe</label>
+        <label for="password" id="lbl-pass"></label>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
 
-        <button type="submit" id="submit">Se connecter</button>
+        <button type="submit" class="submit" id="submit"></button>
 
-        <div class="error" id="error">Identifiant ou mot de passe incorrect.</div>
-        <div class="foot">Apprends le Rust, niveau par niveau 🦀</div>
+        <div class="error" id="error"></div>
+        <div class="foot" id="foot"></div>
     </form>
 
     <script>
-        const form = document.getElementById("form");
-        const err = document.getElementById("error");
-        const btn = document.getElementById("submit");
+        const I18N = {
+            fr: {
+                sub: "Connecte-toi pour continuer ton aventure",
+                user: "Identifiant",
+                password: "Mot de passe",
+                login: "Se connecter",
+                connecting: "Connexion…",
+                error: "Identifiant ou mot de passe incorrect.",
+                foot: "Apprends le Rust, niveau par niveau 🦀",
+            },
+            en: {
+                sub: "Log in to continue your adventure",
+                user: "Username",
+                password: "Password",
+                login: "Log in",
+                connecting: "Logging in…",
+                error: "Incorrect username or password.",
+                foot: "Learn Rust, level by level 🦀",
+            },
+        };
+
+        let lang = localStorage.getItem("rustquest_lang") === "en" ? "en" : "fr";
+
+        const $ = (id) => document.getElementById(id);
+
+        function applyLang(l) {
+            lang = l;
+            localStorage.setItem("rustquest_lang", lang);
+            document.documentElement.lang = lang;
+            const T = I18N[lang];
+            $("sub").textContent = T.sub;
+            $("lbl-user").textContent = T.user;
+            $("lbl-pass").textContent = T.password;
+            $("submit").textContent = T.login;
+            $("error").textContent = T.error;
+            $("foot").textContent = T.foot;
+            document.querySelectorAll("#lang-toggle button").forEach((b) =>
+                b.classList.toggle("active", b.dataset.lang === lang)
+            );
+        }
+
+        document.querySelectorAll("#lang-toggle button").forEach((b) =>
+            b.addEventListener("click", () => applyLang(b.dataset.lang))
+        );
+
+        const form = $("form");
+        const err = $("error");
+        const btn = $("submit");
 
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
             err.classList.remove("show");
             btn.disabled = true;
-            btn.textContent = "Connexion…";
+            btn.textContent = I18N[lang].connecting;
             try {
                 const res = await fetch("/api/login", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        user: document.getElementById("user").value,
-                        password: document.getElementById("password").value,
+                        user: $("user").value,
+                        password: $("password").value,
                     }),
                 });
                 if (res.ok) {
@@ -113,8 +173,10 @@
                 err.classList.add("show");
             }
             btn.disabled = false;
-            btn.textContent = "Se connecter";
+            btn.textContent = I18N[lang].login;
         });
+
+        applyLang(lang);
     </script>
 </body>
 </html>
