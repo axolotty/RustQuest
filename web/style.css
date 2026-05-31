@@ -326,6 +326,10 @@ body {
     margin-top: 8px;
     line-height: 1.5;
     color: #e8ddd0;
+    /* Une grosse erreur de compilation défile DANS le cadre au lieu de
+       faire exploser la hauteur de la page. */
+    max-height: 320px;
+    overflow: auto;
 }
 .out-label { font-size: 12px; color: var(--text-dim); margin-top: 8px; text-transform: uppercase; letter-spacing: .5px; }
 .diff-row { display: flex; gap: 12px; flex-wrap: wrap; }

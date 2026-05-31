@@ -423,6 +423,8 @@ function renderOutcome(res) {
   const out = $("output");
   out.innerHTML = "";
   out.appendChild(box);
+  // Amène le résultat à l'écran (utile sur mobile / longue leçon).
+  out.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 // ----------------------------------------------------------------------------
