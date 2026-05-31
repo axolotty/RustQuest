@@ -20,7 +20,11 @@ RUN mkdir src \
 
 # 2) Puis le vrai code (y compris le dossier web/ embarqué via include_str!).
 COPY . .
-RUN cargo build --release
+# L'étape de cache ci-dessus a compilé un main.rs FACTICE. On « touche » les
+# sources pour que Cargo recompile bien le VRAI binaire : sans ça, selon les
+# dates de fichiers issues de COPY, Cargo pourrait garder le binaire factice
+# (qui se contente de se terminer immédiatement avec le code 0).
+RUN touch src/*.rs && cargo build --release
 
 # ---- Étape 2 : image d'exécution ---------------------------------------------
 FROM rust:1.95-slim AS runtime
