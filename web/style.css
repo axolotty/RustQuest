@@ -262,7 +262,10 @@ body {
 }
 #editor {
     width: 100%;
-    min-height: 220px;
+    /* Hauteur compacte et bornée : le code DÉFILE dans la zone au lieu de
+       pousser les boutons hors de l'écran. Redimensionnable à la souris. */
+    min-height: 150px;
+    max-height: 50vh;
     background: var(--code-bg);
     color: #e8ddd0;
     border: none;
@@ -271,18 +274,21 @@ body {
     font-size: 14px;
     line-height: 1.6;
     resize: vertical;
+    overflow: auto;
     outline: none;
     tab-size: 4;
 }
 
 .exercise-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+/* Boutons d'exercice plus compacts. */
+.exercise-actions .ghost-btn { padding: 7px 10px; font-size: 13px; }
 .run-btn {
     background: linear-gradient(135deg, var(--rust), var(--rust-dim));
     color: #fff;
     border: none;
     border-radius: 8px;
-    padding: 10px 22px;
-    font-size: 15px;
+    padding: 8px 16px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     flex: 2;
