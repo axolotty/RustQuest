@@ -42,7 +42,10 @@ services:
     mem_limit: 2g            # plafond mémoire (compilation rustc + tmpfs comprise)
     cpus: 1.5                # plafond CPU
     tmpfs:
-      - /tmp:size=256m,mode=1777   # compilation/exécution en mémoire, taille limitée
+      # `exec` est INDISPENSABLE : on exécute le binaire compilé depuis /tmp.
+      # (Docker monte les tmpfs en `noexec` par défaut → sinon "Permission
+      # denied (os error 13)" au lancement du code de l'apprenant.)
+      - /tmp:exec,size=256m,mode=1777   # compilation/exécution en mémoire, taille limitée
     # Durcissement optionnel : racine du conteneur en LECTURE SEULE.
     # /data (volume) et /tmp (tmpfs) restent inscriptibles. Teste d'abord qu'un
     # exercice se compile toujours, puis décommente les deux lignes ci-dessous
