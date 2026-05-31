@@ -29,6 +29,12 @@ RUN touch src/*.rs && cargo build --release
 # ---- Étape 2 : image d'exécution ---------------------------------------------
 FROM rust:1.95-slim AS runtime
 
+# Applique les derniers correctifs de sécurité du système de base (réduit les
+# CVE Debian connues). On nettoie le cache apt pour garder l'image légère.
+RUN apt-get update \
+    && apt-get -y upgrade \
+    && rm -rf /var/lib/apt/lists/*
+
 # Clippy est nécessaire au runtime (l'app l'invoque pour les conseils
 # idiomatiques). On crée un lien sûr vers clippy-driver pour qu'il soit dans le
 # PATH de tous les utilisateurs.

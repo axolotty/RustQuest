@@ -185,6 +185,14 @@ l'outil. Voici les garde-fous mis en place.
 - **Conteneur durci** : utilisateur **non-root**, `no-new-privileges`,
   `cap_drop: ALL`, `pids_limit` (anti fork-bomb), `mem_limit`, `cpus`, et
   compilation/exécution dans un **tmpfs** `/tmp` de taille limitée.
+- **Correctifs système** : l'image applique `apt-get upgrade` à la construction
+  pour patcher les CVE Debian connues. (L'avertissement éventuel d'un scanner
+  sur la ligne `FROM` porte sur l'image de base *publiée*, pas sur l'image
+  finale patchée.) Option `read_only: true` disponible (commentée) dans le
+  compose pour une racine en lecture seule.
+
+> 🔎 Pour scanner l'image construite : `docker scout cves rustquest:latest`
+> (ou `trivy image rustquest:latest`). Rebuilds réguliers = derniers correctifs.
 
 **Limite connue** — le code exécuté peut encore tenter des accès réseau sortants
 (le conteneur a besoin du réseau pour servir l'app). Pour aller plus loin :
