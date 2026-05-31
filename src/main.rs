@@ -8,9 +8,10 @@ mod progress;
 mod runner;
 
 use axum::{
-    extract::{Path, Query, State},
-    http::header,
-    response::{Html, IntoResponse},
+    extract::{Path, Query, Request, State},
+    http::{header, HeaderMap, StatusCode},
+    middleware::Next,
+    response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
     Json, Router,
 };
@@ -20,37 +21,35 @@ use std::sync::Arc;
 /// État partagé entre toutes les requêtes.
 struct AppState {
     store: progress::Store,
+    /// Authentification (page de connexion) — `None` si désactivée.
+    auth: Option<auth::Auth>,
 }
 
 #[tokio::main]
 async fn main() {
     let state = Arc::new(AppState {
         store: progress::Store::load(),
+        auth: auth::Auth::from_env(),
     });
+    let auth_active = state.auth.is_some();
 
     let app = Router::new()
         .route("/", get(index))
+        .route("/login", get(login_page))
         .route("/style.css", get(style))
         .route("/app.js", get(app_js))
+        .route("/api/auth-status", get(auth_status))
+        .route("/api/login", post(api_login))
+        .route("/api/logout", post(api_logout))
         .route("/api/levels", get(list_levels))
         .route("/api/levels/{id}", get(level_detail))
         .route("/api/paliers", get(list_paliers))
         .route("/api/run", post(run))
         .route("/api/reset", post(reset))
+        // Garde d'authentification : laisse tout passer si l'auth est désactivée,
+        // sinon exige une session valide (sauf /login et /api/login).
+        .layer(axum::middleware::from_fn_with_state(state.clone(), auth_guard))
         .with_state(state);
-
-    // Authentification HTTP Basic, activée uniquement si les variables
-    // d'environnement RUSTQUEST_AUTH_USER / RUSTQUEST_AUTH_PASSWORD sont posées.
-    let (app, auth_active) = match auth::AuthConfig::from_env() {
-        Some(cfg) => (
-            app.layer(axum::middleware::from_fn_with_state(
-                cfg,
-                auth::require_basic_auth,
-            )),
-            true,
-        ),
-        None => (app, false),
-    };
 
     // Adresse d'écoute configurable (127.0.0.1:3000 par défaut en local,
     // 0.0.0.0:3000 typiquement dans Docker).
@@ -60,13 +59,101 @@ async fn main() {
     println!("\n  🦀 RustQuest est lancé !");
     println!("  ➜  Écoute sur http://{addr}");
     if auth_active {
-        println!("  🔒 Authentification : ACTIVÉE (Basic Auth)");
+        println!("  🔒 Authentification : ACTIVÉE (page de connexion)");
     } else {
         println!("  🔓 Authentification : désactivée (aucun RUSTQUEST_AUTH_* défini)");
     }
     println!();
 
     axum::serve(listener, app).await.unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Authentification : garde de session + page de connexion
+// ---------------------------------------------------------------------------
+
+/// Middleware : exige une session valide, sauf pour les routes publiques.
+async fn auth_guard(State(state): State<Arc<AppState>>, req: Request, next: Next) -> Response {
+    let Some(auth) = &state.auth else {
+        return next.run(req).await; // auth désactivée : tout passe
+    };
+
+    let path = req.uri().path();
+    if path == "/login" || path == "/api/login" {
+        return next.run(req).await; // routes publiques (sinon on ne pourrait pas se connecter)
+    }
+
+    if let Some(token) = auth::read_session_cookie(req.headers()) {
+        if auth.sessions.is_valid(&token) {
+            return next.run(req).await;
+        }
+    }
+
+    // Non authentifié : 401 pour l'API, redirection vers /login pour une page.
+    if path.starts_with("/api/") {
+        StatusCode::UNAUTHORIZED.into_response()
+    } else {
+        Redirect::to("/login").into_response()
+    }
+}
+
+/// GET /login — la page de connexion (ou redirection si l'auth est désactivée).
+async fn login_page(State(state): State<Arc<AppState>>) -> Response {
+    if state.auth.is_none() {
+        return Redirect::to("/").into_response();
+    }
+    Html(include_str!("../web/login.html")).into_response()
+}
+
+#[derive(Deserialize)]
+struct LoginRequest {
+    user: String,
+    password: String,
+}
+
+/// POST /api/login — vérifie les identifiants et ouvre une session.
+async fn api_login(State(state): State<Arc<AppState>>, Json(body): Json<LoginRequest>) -> Response {
+    let Some(auth) = &state.auth else {
+        return Json(serde_json::json!({ "ok": true })).into_response();
+    };
+
+    if auth.config.verify(&body.user, &body.password) {
+        let token = auth.sessions.create();
+        let mut resp = Json(serde_json::json!({ "ok": true })).into_response();
+        resp.headers_mut().insert(
+            header::SET_COOKIE,
+            auth::set_cookie_header(&token).parse().unwrap(),
+        );
+        resp
+    } else {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "ok": false })),
+        )
+            .into_response()
+    }
+}
+
+/// POST /api/logout — ferme la session et efface le cookie.
+async fn api_logout(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
+    if let Some(auth) = &state.auth {
+        if let Some(token) = auth::read_session_cookie(&headers) {
+            auth.sessions.remove(&token);
+        }
+    }
+    let mut resp = Json(serde_json::json!({ "ok": true })).into_response();
+    resp.headers_mut().insert(
+        header::SET_COOKIE,
+        auth::clear_cookie_header().parse().unwrap(),
+    );
+    resp
+}
+
+/// GET /api/auth-status — indique au frontend si l'auth est active (pour
+/// afficher le bouton de déconnexion). N'est atteint que par un utilisateur
+/// authentifié (ou quand l'auth est désactivée).
+async fn auth_status(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "enabled": state.auth.is_some() }))
 }
 
 // ---------------------------------------------------------------------------

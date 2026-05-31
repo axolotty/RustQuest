@@ -38,6 +38,7 @@ const I18N = {
     palierSubtitle: "Palier de révision",
     palierLocked: "Termine le bloc de 10 niveaux pour débloquer ce palier.",
     palierLabel: "Palier",
+    logout: "Déconnexion",
   },
   en: {
     levels: "Levels",
@@ -72,6 +73,7 @@ const I18N = {
     palierSubtitle: "Review checkpoint",
     palierLocked: "Finish the block of 10 levels to unlock this checkpoint.",
     palierLabel: "Checkpoint",
+    logout: "Log out",
   },
 };
 
@@ -478,6 +480,27 @@ function applyStaticLabels() {
   $("solution-label").textContent = t("solution");
   $("resetcode-label").textContent = t("resetCode");
   $("reset-label").textContent = t("resetAll");
+  $("logout-label").textContent = t("logout");
+}
+
+// Affiche le bouton de déconnexion si l'authentification est active.
+async function setupAuth() {
+  try {
+    const r = await fetch("/api/auth-status");
+    const d = await r.json();
+    if (d.enabled) {
+      const b = $("logout-btn");
+      b.style.display = "";
+      b.addEventListener("click", logout);
+    }
+  } catch (_) {
+    /* auth-status indisponible : on ignore */
+  }
+}
+
+async function logout() {
+  await fetch("/api/logout", { method: "POST" });
+  window.location.href = "/login";
 }
 
 async function resetProgress() {
@@ -571,6 +594,7 @@ function init() {
   });
 
   applyStaticLabels();
+  setupAuth();
   refreshLevels();
 }
 

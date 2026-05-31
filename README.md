@@ -90,7 +90,7 @@ Pas besoin de toucher au reste : relance `cargo run` et le niveau apparaît.
 | Fichier | Rôle |
 |---|---|
 | `src/main.rs` | Serveur web **axum** + routes API |
-| `src/auth.rs` | Authentification HTTP Basic optionnelle |
+| `src/auth.rs` | Authentification optionnelle (page de connexion + session) |
 | `src/content.rs` | Le curriculum (données + leçons bilingues) |
 | `src/runner.rs` | Compile/exécute le code soumis (timeout + limites + Clippy) |
 | `src/progress.rs` | Sauvegarde de la progression (XP, niveaux réussis) |
@@ -134,8 +134,8 @@ docker compose up -d --build
 - `rustquest` n'est **pas** exposé à Internet : Caddy lui parle par le réseau
   interne.
 
-Va sur `https://ton-domaine` → le navigateur demande **identifiant + mot de
-passe**. C'est tout.
+Va sur `https://ton-domaine` → une **page de connexion** s'affiche ; saisis ton
+**identifiant + mot de passe**. C'est tout.
 
 #### Mode B — tu as déjà un reverse proxy (`COMPOSE_PROFILES=` vide)
 
@@ -172,10 +172,12 @@ Le serveur **compile et exécute du code arbitraire** : c'est l'objet même de
 l'outil. Voici les garde-fous mis en place.
 
 **Accès**
-- Authentification **HTTP Basic** (comparaison à temps constant) dès que
-  `RUSTQUEST_AUTH_*` sont définis.
-- **HTTPS** via Caddy (le mot de passe ne circule jamais en clair). N'expose
-  l'app **que** derrière HTTPS.
+- Authentification par **page de connexion** + **session par cookie**
+  (jeton aléatoire 256 bits, cookie `HttpOnly` + `SameSite=Strict`, comparaison
+  des identifiants à temps constant) dès que `RUSTQUEST_AUTH_*` sont définis.
+- **HTTPS** via ton reverse proxy (le mot de passe ne circule jamais en clair).
+  N'expose l'app **que** derrière HTTPS. Pose `RUSTQUEST_SECURE_COOKIE=true`
+  pour marquer le cookie `Secure` quand tu es bien en HTTPS.
 
 **Exécution du code (sandbox)**
 - **Timeouts** : compilation (20 s) et exécution (5 s) interrompues si trop
