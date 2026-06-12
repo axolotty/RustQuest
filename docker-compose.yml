@@ -32,6 +32,9 @@ services:
     volumes:
       - rustquest_data:/data
     networks:
+      # Réseau INTERNE uniquement (internal: true) : le code compilé/exécuté par
+      # l'apprenant n'a AUCUN accès sortant vers Internet (anti exfiltration /
+      # SSRF / mineur). Les ports publiés (inbound) restent joignables.
       - interne
     # --- Garde-fous de sécurité (sandbox du code exécuté) ---
     security_opt:
@@ -41,17 +44,20 @@ services:
     pids_limit: 256          # empêche les fork bombs
     mem_limit: 2g            # plafond mémoire (compilation rustc + tmpfs comprise)
     cpus: 1.5                # plafond CPU
+    # Racine du conteneur en LECTURE SEULE. Seuls /data (volume), /tmp et
+    # /home/rustquest (tmpfs ci-dessous) sont inscriptibles. rustc/clippy
+    # écrivent leurs fichiers intermédiaires dans /tmp, donc la compilation
+    # reste fonctionnelle.
+    read_only: true
     tmpfs:
       # `exec` est INDISPENSABLE : on exécute le binaire compilé depuis /tmp.
       # (Docker monte les tmpfs en `noexec` par défaut → sinon "Permission
       # denied (os error 13)" au lancement du code de l'apprenant.)
       - /tmp:exec,size=256m,mode=1777   # compilation/exécution en mémoire, taille limitée
-    # Durcissement optionnel : racine du conteneur en LECTURE SEULE.
-    # /data (volume) et /tmp (tmpfs) restent inscriptibles. Teste d'abord qu'un
-    # exercice se compile toujours, puis décommente les deux lignes ci-dessous
-    # (et ajoute le tmpfs /home).
-    # read_only: true
-    #   ... et dans tmpfs ajoute :  - /home/rustquest:size=16m,mode=0700
+      # HOME inscriptible pour les caches éventuels de la toolchain Rust.
+      # uid/gid = ceux de l'utilisateur rustquest (10001) sinon le tmpfs est
+      # monté root:root et l'utilisateur ne peut pas y écrire.
+      - /home/rustquest:size=16m,mode=0700,uid=10001,gid=10001
 
   caddy:
     image: caddy:2
@@ -70,10 +76,25 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     networks:
+      # Caddy joint les DEUX réseaux : "interne" pour atteindre rustquest,
+      # "externe" pour son propre accès Internet (Let's Encrypt / ACME).
       - interne
+      - externe
 
 networks:
+  # Réseau confiné : le masquerade NAT est DÉSACTIVÉ, donc le trafic sortant du
+  # conteneur vers Internet n'est pas SNAT'é et n'a pas de chemin de retour →
+  # egress effectivement bloqué (anti exfiltration / SSRF / mineur). Les ports
+  # PUBLIÉS (inbound, via DNAT côté hôte) continuent eux de fonctionner, donc le
+  # reverse proxy externe joint toujours rustquest. (Contrairement à
+  # `internal: true`, qui supprimerait carrément la publication de ports.)
   interne:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+  # Réseau classique avec accès Internet, réservé à Caddy (ACME/HTTPS) quand le
+  # profil caddy est activé.
+  externe:
     driver: bridge
 
 volumes:

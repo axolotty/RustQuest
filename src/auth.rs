@@ -10,16 +10,28 @@
 //! cookie quand tu es bien derrière HTTPS.
 
 use axum::http::{header, HeaderMap};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::io::Read;
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 const COOKIE_NAME: &str = "rustquest_session";
 
-/// Regroupe la config (identifiants) et les sessions actives.
+/// Durée de vie d'une session côté serveur — alignée sur le `Max-Age` du cookie
+/// (7 jours). Au-delà, le jeton est considéré invalide et purgé.
+const SESSION_TTL: Duration = Duration::from_secs(604800);
+
+/// Nombre maximal de tentatives de connexion échouées par client et par fenêtre.
+const LOGIN_MAX_ATTEMPTS: u32 = 10;
+/// Fenêtre glissante du limiteur de connexion.
+const LOGIN_WINDOW: Duration = Duration::from_secs(900); // 15 min
+
+/// Regroupe la config (identifiants), les sessions actives et le limiteur de
+/// tentatives de connexion.
 pub struct Auth {
     pub config: AuthConfig,
     pub sessions: Sessions,
+    pub throttle: LoginThrottle,
 }
 
 impl Auth {
@@ -28,6 +40,7 @@ impl Auth {
         Some(Auth {
             config: AuthConfig::from_env()?,
             sessions: Sessions::new(),
+            throttle: LoginThrottle::new(),
         })
     }
 }
@@ -55,9 +68,10 @@ impl AuthConfig {
     }
 }
 
-/// L'ensemble des jetons de session valides (en mémoire).
+/// L'ensemble des jetons de session valides (en mémoire), avec leur instant de
+/// création pour appliquer une expiration (TTL) et purger les sessions périmées.
 pub struct Sessions {
-    inner: Mutex<HashSet<String>>,
+    inner: Mutex<HashMap<String, Instant>>,
 }
 
 impl Default for Sessions {
@@ -69,24 +83,116 @@ impl Default for Sessions {
 impl Sessions {
     pub fn new() -> Self {
         Sessions {
-            inner: Mutex::new(HashSet::new()),
+            inner: Mutex::new(HashMap::new()),
         }
     }
 
     /// Crée une nouvelle session et renvoie son jeton.
+    /// En profite pour purger au passage les jetons expirés (pas de croissance
+    /// mémoire non bornée).
     pub fn create(&self) -> String {
         let token = random_token();
-        self.inner.lock().unwrap().insert(token.clone());
+        let now = Instant::now();
+        let mut map = self.inner.lock().unwrap();
+        map.retain(|_, created| now.duration_since(*created) < SESSION_TTL);
+        map.insert(token.clone(), now);
         token
     }
 
     pub fn is_valid(&self, token: &str) -> bool {
-        self.inner.lock().unwrap().contains(token)
+        let mut map = self.inner.lock().unwrap();
+        match map.get(token) {
+            Some(created) if Instant::now().duration_since(*created) < SESSION_TTL => true,
+            Some(_) => {
+                // Session expirée : on la retire et on refuse.
+                map.remove(token);
+                false
+            }
+            None => false,
+        }
     }
 
     pub fn remove(&self, token: &str) {
         self.inner.lock().unwrap().remove(token);
     }
+}
+
+/// Limiteur de tentatives de connexion par client (fenêtre glissante en
+/// mémoire). Protège `/api/login` du brute-force.
+pub struct LoginThrottle {
+    inner: Mutex<HashMap<String, Attempts>>,
+}
+
+struct Attempts {
+    count: u32,
+    window_start: Instant,
+}
+
+impl Default for LoginThrottle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LoginThrottle {
+    pub fn new() -> Self {
+        LoginThrottle {
+            inner: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Renvoie `true` si une tentative est encore autorisée pour ce client.
+    /// Purge au passage les fenêtres expirées.
+    pub fn allowed(&self, key: &str) -> bool {
+        let now = Instant::now();
+        let mut map = self.inner.lock().unwrap();
+        map.retain(|_, a| now.duration_since(a.window_start) < LOGIN_WINDOW);
+        match map.get(key) {
+            Some(a) => a.count < LOGIN_MAX_ATTEMPTS,
+            None => true,
+        }
+    }
+
+    /// Enregistre une tentative échouée pour ce client.
+    pub fn record_failure(&self, key: &str) {
+        let now = Instant::now();
+        let mut map = self.inner.lock().unwrap();
+        let entry = map.entry(key.to_string()).or_insert(Attempts {
+            count: 0,
+            window_start: now,
+        });
+        if now.duration_since(entry.window_start) >= LOGIN_WINDOW {
+            entry.count = 0;
+            entry.window_start = now;
+        }
+        entry.count += 1;
+    }
+
+    /// Réinitialise le compteur après une connexion réussie.
+    pub fn record_success(&self, key: &str) {
+        self.inner.lock().unwrap().remove(key);
+    }
+}
+
+/// Identifie le client pour le limiteur de connexion : première IP de
+/// `X-Forwarded-For` (renseignée par le reverse proxy), sinon `X-Real-IP`,
+/// sinon une clé constante (limiteur global de repli).
+pub fn client_key(headers: &HeaderMap) -> String {
+    if let Some(xff) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
+        if let Some(first) = xff.split(',').next() {
+            let ip = first.trim();
+            if !ip.is_empty() {
+                return ip.to_string();
+            }
+        }
+    }
+    if let Some(xr) = headers.get("x-real-ip").and_then(|v| v.to_str().ok()) {
+        let ip = xr.trim();
+        if !ip.is_empty() {
+            return ip.to_string();
+        }
+    }
+    "unknown".to_string()
 }
 
 /// Lit le jeton de session dans l'en-tête `Cookie`, s'il est présent.

@@ -112,12 +112,30 @@ struct LoginRequest {
 }
 
 /// POST /api/login — vérifie les identifiants et ouvre une session.
-async fn api_login(State(state): State<Arc<AppState>>, Json(body): Json<LoginRequest>) -> Response {
+/// Protégé par un limiteur de tentatives par client (anti brute-force).
+async fn api_login(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(body): Json<LoginRequest>,
+) -> Response {
     let Some(auth) = &state.auth else {
         return Json(serde_json::json!({ "ok": true })).into_response();
     };
 
+    let key = auth::client_key(&headers);
+    if !auth.throttle.allowed(&key) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "Trop de tentatives, réessayez dans quelques minutes."
+            })),
+        )
+            .into_response();
+    }
+
     if auth.config.verify(&body.user, &body.password) {
+        auth.throttle.record_success(&key);
         let token = auth.sessions.create();
         let mut resp = Json(serde_json::json!({ "ok": true })).into_response();
         resp.headers_mut().insert(
@@ -126,6 +144,7 @@ async fn api_login(State(state): State<Arc<AppState>>, Json(body): Json<LoginReq
         );
         resp
     } else {
+        auth.throttle.record_failure(&key);
         (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({ "ok": false })),

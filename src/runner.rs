@@ -230,7 +230,7 @@ fn apply_sandbox(cmd: &mut Command) {
 
 #[cfg(target_os = "linux")]
 fn set_resource_limits() {
-    use libc::{rlimit, setrlimit, RLIMIT_AS, RLIMIT_CPU, RLIMIT_FSIZE};
+    use libc::{rlimit, setrlimit, RLIMIT_AS, RLIMIT_CPU, RLIMIT_FSIZE, RLIMIT_NOFILE};
     let limit = |resource, value: libc::rlim_t| {
         let rl = rlimit {
             rlim_cur: value,
@@ -244,6 +244,7 @@ fn set_resource_limits() {
     limit(RLIMIT_CPU, 10); // 10 s de temps CPU
     limit(RLIMIT_AS, 512 * 1024 * 1024); // 512 Mo de mémoire (adresse virtuelle)
     limit(RLIMIT_FSIZE, 16 * 1024 * 1024); // 16 Mo max écrits dans un fichier
+    limit(RLIMIT_NOFILE, 256); // 256 descripteurs de fichiers max (anti épuisement)
 }
 
 // ---------------------------------------------------------------------------
