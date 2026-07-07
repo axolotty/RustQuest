@@ -25,7 +25,7 @@ Puis ouvre **http://127.0.0.1:3000** dans ton navigateur.
   droite).
 - Clique sur **▶ Lancer** (ou `Ctrl`/`Cmd` + `Entrée`) : ton code est
   **réellement compilé et exécuté** par le serveur, puis vérifié.
-- En cas d'erreur, tu vois le message exact du compilateur Rust — c'est lui
+- En cas d'erreur, tu vois le message exact du compilateur Rust - c'est lui
   ton meilleur prof.
 - Si ta solution **marche mais n'est pas idiomatique**, elle est quand même
   validée, et **Clippy** (le linter officiel) te suggère comment l'améliorer.
@@ -35,7 +35,7 @@ Puis ouvre **http://127.0.0.1:3000** dans ton navigateur.
 Ta progression est sauvegardée dans `progress.json`. Le bouton **⟳** en haut à
 droite remet tout à zéro.
 
-## Le parcours — 100 niveaux, du débutant à l'avancé
+## Le parcours - 100 niveaux, du débutant à l'avancé
 
 Les niveaux se débloquent un à un et montent en difficulté. Grandes étapes :
 
@@ -77,7 +77,7 @@ Tout le contenu est dans [`src/content.rs`](src/content.rs). Ajoute une entrée
 - `title`, `subtitle`, `lesson`, `task`, `hints` : bilingues via `Bi { fr, en }`.
 - `lesson` est du **Markdown** (rendu automatiquement en HTML).
 - `starter` : le code de départ affiché dans l'éditeur.
-- `check` : comment vérifier la réussite —
+- `check` : comment vérifier la réussite -
   - `Check::Stdout { expected: "..." }` : on compare la sortie du programme.
   - `Check::Harness { harness: "..." }` : on colle du code de test (avec un
     `fn main` qui fait des `assert!` puis imprime `SUCCESS_MARKER`) à la suite
@@ -98,7 +98,7 @@ Pas besoin de toucher au reste : relance `cargo run` et le niveau apparaît.
 
 ---
 
-## Déploiement (Docker) — accessible depuis n'importe où 🔒
+## Déploiement (Docker) - accessible depuis n'importe où 🔒
 
 Le projet peut tourner **soit** en local avec `cargo run`, **soit** dans Docker
 derrière un reverse proxy HTTPS, protégé par un compte.
@@ -126,7 +126,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-#### Mode A — avec le Caddy fourni (`COMPOSE_PROFILES=caddy`)
+#### Mode A - avec le Caddy fourni (`COMPOSE_PROFILES=caddy`)
 
 - `caddy` expose les ports **80/443** et obtient/renouvelle le **certificat
   HTTPS** tout seul (si `RUSTQUEST_DOMAIN` est un vrai domaine pointant vers le
@@ -137,10 +137,10 @@ docker compose up -d --build
 Va sur `https://ton-domaine` → une **page de connexion** s'affiche ; saisis ton
 **identifiant + mot de passe**. C'est tout.
 
-#### Mode B — tu as déjà un reverse proxy (`COMPOSE_PROFILES=` vide)
+#### Mode B - tu as déjà un reverse proxy (`COMPOSE_PROFILES=` vide)
 
 Le service Caddy est **ignoré**. L'app est publiée sur **`127.0.0.1:RUSTQUEST_PORT`**
-(par défaut `127.0.0.1:3000`) — donc pas exposée directement à Internet. Fais
+(par défaut `127.0.0.1:3000`) - donc pas exposée directement à Internet. Fais
 pointer ton reverse proxy (nginx, Traefik, Apache…) vers cette adresse :
 
 ```nginx
@@ -196,7 +196,7 @@ l'outil. Voici les garde-fous mis en place.
 > 🔎 Pour scanner l'image construite : `docker scout cves rustquest:latest`
 > (ou `trivy image rustquest:latest`). Rebuilds réguliers = derniers correctifs.
 
-**Limite connue** — le code exécuté peut encore tenter des accès réseau sortants
+**Limite connue** - le code exécuté peut encore tenter des accès réseau sortants
 (le conteneur a besoin du réseau pour servir l'app). Pour aller plus loin :
 restreindre le réseau sortant au niveau du pare-feu de l'hôte, ou isoler
 l'exécution dans un sandbox dédié (gVisor, nsjail, microVM…). Pour un usage
