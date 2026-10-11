@@ -17,6 +17,8 @@
 
 services:
   rustquest:
+    labels:
+      - diun.enable=false
     build: .
     image: rustquest:latest
     restart: unless-stopped
